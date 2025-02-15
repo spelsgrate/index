@@ -3,14 +3,6 @@ const context = canvas.getContext('2d');
 
 const paddleHitSound = document.getElementById('paddleHitSound');
 
-paddleHitSound.addEventListener('canplaythrough', function() {
-    console.log('Audio loaded successfully');
-}, false);
-
-paddleHitSound.addEventListener('error', function(e) {
-    console.error('Error loading audio:', e);
-}, false);
-
 let ball = {
     x: canvas.width / 2,
     y: canvas.height / 2,
@@ -35,6 +27,24 @@ let paddle2 = {
     x: canvas.width - 10,
     y: canvas.height / 2 - 50,
     dy: 5,
+    speed: 5
+};
+
+let paddle3 = {
+    width: 100,
+    height: 10,
+    x: canvas.width / 2 - 50,
+    y: 0,
+    dx: 5,
+    speed: 5
+};
+
+let paddle4 = {
+    width: 100,
+    height: 10,
+    x: canvas.width / 2 - 50,
+    y: canvas.height - 10,
+    dx: 5,
     speed: 5
 };
 
@@ -86,16 +96,22 @@ function moveBall() {
     // Check for paddle collisions
     if (ball.x - ball.radius < paddle1.x + paddle1.width && ball.y > paddle1.y && ball.y < paddle1.y + paddle1.height) {
         ball.dx *= -1;
-        if (paddleHitSound.readyState >= 2) {
-            paddleHitSound.play();
-        }
+        paddleHitSound.play();
     }
 
     if (ball.x + ball.radius > paddle2.x && ball.y > paddle2.y && ball.y < paddle2.y + paddle2.height) {
         ball.dx *= -1;
-        if (paddleHitSound.readyState >= 2) {
-            paddleHitSound.play();
-        }
+        paddleHitSound.play();
+    }
+
+    if (ball.y - ball.radius < paddle3.y + paddle3.height && ball.x > paddle3.x && ball.x < paddle3.x + paddle3.width) {
+        ball.dy *= -1;
+        paddleHitSound.play();
+    }
+
+    if (ball.y + ball.radius > paddle4.y && ball.x > paddle4.x && ball.x < paddle4.x + paddle4.width) {
+        ball.dy *= -1;
+        paddleHitSound.play();
     }
 }
 
@@ -119,6 +135,24 @@ function update() {
             paddle2.y += paddle2.speed;
         }
     }
+
+    // Make top paddle follow the ball only when the ball is traveling up
+    if (ball.dy < 0) {
+        if (ball.x < paddle3.x + paddle3.width / 2) {
+            paddle3.x -= paddle3.speed;
+        } else if (ball.x > paddle3.x + paddle3.width / 2) {
+            paddle3.x += paddle3.speed;
+        }
+    }
+
+    // Make bottom paddle follow the ball only when the ball is traveling down
+    if (ball.dy > 0) {
+        if (ball.x < paddle4.x + paddle4.width / 2) {
+            paddle4.x -= paddle4.speed;
+        } else if (ball.x > paddle4.x + paddle4.width / 2) {
+            paddle4.x += paddle4.speed;
+        }
+    }
 }
 
 function updateColors() {
@@ -126,6 +160,8 @@ function updateColors() {
         ball.color = getRandomColor();
         paddle1.color = getRandomColor();
         paddle2.color = getRandomColor();
+        paddle3.color = getRandomColor();
+        paddle4.color = getRandomColor();
     }
 }
 
@@ -134,6 +170,8 @@ function draw() {
     drawBall();
     drawPaddle(paddle1);
     drawPaddle(paddle2);
+    drawPaddle(paddle3);
+    drawPaddle(paddle4);
     update();
     updateColors();
     frameCount++;
@@ -143,5 +181,13 @@ function draw() {
 ball.color = getRandomColor();
 paddle1.color = getRandomColor();
 paddle2.color = getRandomColor();
+paddle3.color = getRandomColor();
+paddle4.color = getRandomColor();
 
-setInterval(draw, 1000 / 60);
+let gameInterval;
+
+document.getElementById('startButton').addEventListener('click', function() {
+    if (!gameInterval) {
+        gameInterval = setInterval(draw, 1000 / 60);
+    }
+});
