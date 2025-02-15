@@ -191,3 +191,10 @@ document.getElementById('startButton').addEventListener('click', function() {
         gameInterval = setInterval(draw, 1000 / 60);
     }
 });
+
+document.getElementById('stopButton').addEventListener('click', function() {
+    if (gameInterval) {
+        clearInterval(gameInterval);
+        gameInterval = null;
+    }
+});
