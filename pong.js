@@ -197,4 +197,6 @@ document.getElementById('stopButton').addEventListener('click', function() {
         clearInterval(gameInterval);
         gameInterval = null;
     }
+    // Revert any inline canvas background changes so CSS background image reappears
+    canvas.style.backgroundImage = '';
 });

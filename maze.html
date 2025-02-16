@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- ...existing head content... -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maze</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Styling for the maze canvas */
+        #mazeCanvas {
+            border: 1px solid #333;
+            background-color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Maze</h1>
+        <canvas id="mazeCanvas" width="400" height="400"></canvas>
+        <!-- Button to refresh the maze -->
+        <button onclick="window.location.reload()">Refresh Maze</button>
+        <!-- Button to navigate back to the index page -->
+        <button onclick="window.location.href='index.html'">Back to Index</button>
+    </div>
+    <script>
+        // Get canvas and context
+        const canvas = document.getElementById('mazeCanvas');
+        const ctx = canvas.getContext('2d');
+        const cols = 20, rows = 20;
+        const cellSize = canvas.width / cols;
+        const grid = []; // Will store all Cell objects
+        const stack = []; // Stack for DFS maze generation
+
+        // Cell constructor to define each maze cell
+        class Cell {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.walls = [true, true, true, true]; // walls: top, right, bottom, left
+                this.visited = false; // For DFS maze generation
+            }
+            // Draw the walls of the cell on the canvas
+            draw() {
+                const x0 = this.x * cellSize;
+                const y0 = this.y * cellSize;
+                ctx.beginPath();
+                if (this.walls[0]) { 
+                    // Draw top wall
+                    ctx.moveTo(x0, y0); 
+                    ctx.lineTo(x0 + cellSize, y0); 
+                }
+                if (this.walls[1]) { 
+                    // Draw right wall
+                    ctx.moveTo(x0 + cellSize, y0); 
+                    ctx.lineTo(x0 + cellSize, y0 + cellSize); 
+                }
+                if (this.walls[2]) { 
+                    // Draw bottom wall
+                    ctx.moveTo(x0 + cellSize, y0 + cellSize); 
+                    ctx.lineTo(x0, y0 + cellSize); 
+                }
+                if (this.walls[3]) { 
+                    // Draw left wall
+                    ctx.moveTo(x0, y0 + cellSize); 
+                    ctx.lineTo(x0, y0); 
+                }
+                ctx.stroke();
+            }
+            // Check for unvisited neighboring cells for DFS
+            checkNeighbors() {
+                const neighbors = [];
+                const top    = index(this.x, this.y - 1);
+                const right  = index(this.x + 1, this.y);
+                const bottom = index(this.x, this.y + 1);
+                const left   = index(this.x - 1, this.y);
+                if (top && !top.visited) neighbors.push(top);
+                if (right && !right.visited) neighbors.push(right);
+                if (bottom && !bottom.visited) neighbors.push(bottom);
+                if (left && !left.visited) neighbors.push(left);
+                // Return a random unvisited neighbor if one exists
+                if (neighbors.length > 0) {
+                    return neighbors[Math.floor(Math.random() * neighbors.length)];
+                } else {
+                    return undefined;
+                }
+            }
+        }
+
+        // Helper function to return a cell from grid at (x, y)
+        function index(x, y) {
+            if (x < 0 || y < 0 || x >= cols || y >= rows) return undefined;
+            return grid[x + y * cols];
+        }
+
+        // Remove the common wall between two adjacent cells
+        function removeWalls(a, b) {
+            let x = a.x - b.x;
+            if (x === 1) {
+                a.walls[3] = false;
+                b.walls[1] = false;
+            } else if (x === -1) {
+                a.walls[1] = false;
+                b.walls[3] = false;
+            }
+            let y = a.y - b.y;
+            if (y === 1) {
+                a.walls[0] = false;
+                b.walls[2] = false;
+            } else if (y === -1) {
+                a.walls[2] = false;
+                b.walls[0] = false;
+            }
+        }
+
+        // Initialize grid with Cell objects for each row and column
+        for (let y = 0; y < rows; y++) {
+            for (let x = 0; x < cols; x++) {
+                grid.push(new Cell(x, y));
+            }
+        }
+
+        // Choose a random entrance cell on the left border
+        const entranceRow = Math.floor(Math.random() * rows);
+        let current = index(0, entranceRow);
+        current.visited = true;
+        stack.push(current);
+
+        // Maze generation using Depth First Search (DFS) and backtracking
+        while (stack.length > 0) {
+            current = stack.pop();
+            const next = current.checkNeighbors();
+            if (next) {
+                stack.push(current);
+                removeWalls(current, next); // Remove wall between current cell and chosen neighbor
+                next.visited = true;
+                stack.push(next);
+            }
+        }
+
+        // Draw the complete maze grid
+        ctx.strokeStyle = "black";
+        for (let i = 0; i < grid.length; i++) {
+            grid[i].draw();
+        }
+
+        // Create maze entrances/exits:
+        // Remove left wall for the entrance cell
+        const entranceCell = index(0, entranceRow);
+        entranceCell.walls[3] = false;
+        // Random exit on the right border: choose a random row for exitCell
+        const exitRow = Math.floor(Math.random() * rows);
+        const exitCell = index(cols - 1, exitRow);
+        exitCell.walls[1] = false;
+
+        // Redraw the entrance and exit cells to show the open walls
+        entranceCell.draw();
+        exitCell.draw();
+
+        // Add labels for "Start" and "Finish" in the entrance and exit cells
+        ctx.font = "12px Arial";
+        ctx.fillStyle = "green";
+        // Calculate label positions within the entrance cell
+        let startX = entranceCell.x * cellSize + cellSize * 0.25;
+        let startY = entranceCell.y * cellSize + cellSize * 0.75;
+        ctx.fillText("Start", startX, startY);
+        
+        ctx.fillStyle = "red";
+        // Calculate label positions within the exit cell
+        let finishX = exitCell.x * cellSize + cellSize * 0.25;
+        let finishY = exitCell.y * cellSize + cellSize * 0.75;
+        ctx.fillText("Finish", finishX, finishY);
+        
+        // --- Maze Solver and Dot Animation Section ---
+        // Solve the maze from entrance to exit using DFS
+        function solveMaze(start, end) {
+            const path = [];
+            const visited = new Set();
+            function dfs(cell) {
+                if (cell === end) {
+                    path.push(cell);
+                    return true;
+                }
+                visited.add(cell);
+                const neighbors = [];
+                // Determine accessible neighbors based on removed walls
+                const top    = index(cell.x, cell.y - 1);
+                const right  = index(cell.x + 1, cell.y);
+                const bottom = index(cell.x, cell.y + 1);
+                const left   = index(cell.x - 1, cell.y);
+                if (top && !cell.walls[0] && !visited.has(top)) neighbors.push(top);
+                if (right && !cell.walls[1] && !visited.has(right)) neighbors.push(right);
+                if (bottom && !cell.walls[2] && !visited.has(bottom)) neighbors.push(bottom);
+                if (left && !cell.walls[3] && !visited.has(left)) neighbors.push(left);
+                for (let n of neighbors) {
+                    if (dfs(n)) {
+                        path.push(cell); // Add current cell to solution path during backtracking
+                        return true;
+                    }
+                }
+                return false;
+            }
+            dfs(start);
+            return path.reverse(); // Reverse the path to get the correct order from start to finish
+        }
+        
+        // Get the solution path for the maze
+        const solutionPath = solveMaze(entranceCell, exitCell);
+        
+        // Animation variables for moving dot
+        let currentIndex = 0;
+        // Start position of the dot at the center of the first cell in the solution path
+        let dotX = solutionPath[0].x * cellSize + cellSize / 2;
+        let dotY = solutionPath[0].y * cellSize + cellSize / 2;
+        const dotRadius = 5;
+        const speed = 1; // Speed (pixels per frame) for dot movement
+        
+        // Function to animate the dot moving along the solution path
+        function animateDot() {
+            // If reach the end of the solution, stop the animation
+            if (currentIndex >= solutionPath.length - 1) {
+                drawOverlay();
+                return;
+            }
+            // Determine target cell center for the next step in the solution path
+            const nextCell = solutionPath[currentIndex + 1];
+            const targetX = nextCell.x * cellSize + cellSize / 2;
+            const targetY = nextCell.y * cellSize + cellSize / 2;
+            // Calculate distance to target
+            const dx = targetX - dotX;
+            const dy = targetY - dotY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            // If close enough to target, snap to target and move to next path cell
+            if (distance < speed) {
+                dotX = targetX;
+                dotY = targetY;
+                currentIndex++;
+            } else {
+                // Move dot by normalizing the vector and multiplying by speed
+                dotX += (dx / distance) * speed;
+                dotY += (dy / distance) * speed;
+            }
+            drawOverlay();
+            requestAnimationFrame(animateDot);
+        }
+        
+        // Function to redraw maze and overlay the moving dot
+        function drawOverlay() {
+            // Clear the canvas and redraw the maze
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = "black";
+            for (let i = 0; i < grid.length; i++) {
+                grid[i].draw();
+            }
+            // Redraw entrance, exit, and static labels
+            entranceCell.draw();
+            exitCell.draw();
+            ctx.font = "12px Arial";
+            ctx.fillStyle = "green";
+            ctx.fillText("Start", startX, startY);
+            ctx.fillStyle = "red";
+            ctx.fillText("Finish", finishX, finishY);
+            // Draw the moving dot
+            ctx.beginPath();
+            ctx.arc(dotX, dotY, dotRadius, 0, Math.PI * 2);
+            ctx.fillStyle = "blue";
+            ctx.fill();
+            ctx.closePath();
+        }
+        
+        // Start the dot animation along the solution path
+        animateDot();
+    </script>
+</body>
+</html>
