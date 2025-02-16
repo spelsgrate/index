@@ -36,10 +36,12 @@ document.addEventListener('DOMContentLoaded', () => {
         image.style.display = (image.style.display === 'none' || image.style.display === '') ? 'block' : 'none';
     });
 
-    // Change heading text
-    textInput.addEventListener('input', () => {
-        document.querySelector('h1').textContent = textInput.value;
-    });
+    // Change heading text if textInput exists
+    if (textInput) {
+        textInput.addEventListener('input', () => {
+            document.querySelector('h1').textContent = textInput.value;
+        });
+    }
 
     // Function to generate a random color
     function getRandomColor() {
@@ -50,4 +52,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return color;
     }
+
+    AOS.init();
 });

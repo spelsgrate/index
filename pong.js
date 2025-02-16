@@ -36,7 +36,7 @@ let paddle3 = {
     x: canvas.width / 2 - 50,
     y: 0,
     dx: 5,
-    speed: 5
+    speed: 7 // Increase the speed of the top paddle
 };
 
 let paddle4 = {
