@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Three.js</title>
+    <style>body { margin: 0; }</style>
+</head>
+<body>
+    <div id="debug" style="position:fixed; top:10px; left:10px; background:white; padding:10px;"></div>
+    <script type="module">
+        const debug = document.getElementById('debug');
+        try {
+            // 1. Import Three.js
+            import * as THREE from 'https://unpkg.com/three@0.152.2/build/three.module.js';
+            debug.textContent = '1. Three.js imported';
+
+            // 2. Basic scene setup
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+            debug.textContent = '2. Scene created';
+
+            // 3. Add cube
+            const geometry = new THREE.BoxGeometry();
+            const material = new THREE.MeshBasicMaterial({color: 0x00ff00});
+            const cube = new THREE.Mesh(geometry, material);
+            scene.add(cube);
+            camera.position.z = 5;
+            debug.textContent = '3. Cube added';
+
+            // 4. Animation
+            function animate() {
+                requestAnimationFrame(animate);
+                cube.rotation.x += 0.01;
+                cube.rotation.y += 0.01;
+                renderer.render(scene, camera);
+            }
+            animate();
+            debug.textContent = '4. Animation running';
+
+        } catch (error) {
+            debug.style.color = 'red';
+            debug.textContent = `Error: ${error.message}`;
+            console.error(error);
+        }
+    </script>
+</body>
+</html>

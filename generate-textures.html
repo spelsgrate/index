@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Texture Generator</title>
+</head>
+<body>
+    <canvas id="woodCanvas" width="128" height="128"></canvas>
+    <canvas id="floorCanvas" width="128" height="128"></canvas>
+    <script>
+        // Wood texture generator
+        const woodCanvas = document.getElementById('woodCanvas');
+        const woodCtx = woodCanvas.getContext('2d');
+        
+        // Create wood grain effect
+        const woodGradient = woodCtx.createLinearGradient(0, 0, 128, 0);
+        woodGradient.addColorStop(0, '#8B4513');
+        woodGradient.addColorStop(0.5, '#A0522D');
+        woodGradient.addColorStop(1, '#8B4513');
+        
+        woodCtx.fillStyle = woodGradient;
+        woodCtx.fillRect(0, 0, 128, 128);
+        
+        // Add wood grain lines
+        for(let i = 0; i < 128; i += 4) {
+            woodCtx.beginPath();
+            woodCtx.strokeStyle = `rgba(0,0,0,${Math.random() * 0.1})`;
+            woodCtx.lineWidth = 1;
+            woodCtx.moveTo(0, i);
+            woodCtx.lineTo(128, i + Math.random() * 8);
+            woodCtx.stroke();
+        }
+        
+        // Floor texture generator
+        const floorCanvas = document.getElementById('floorCanvas');
+        const floorCtx = floorCanvas.getContext('2d');
+        
+        // Create concrete effect
+        floorCtx.fillStyle = '#555555';
+        floorCtx.fillRect(0, 0, 128, 128);
+        
+        // Add noise pattern
+        for(let x = 0; x < 128; x++) {
+            for(let y = 0; y < 128; y++) {
+                if(Math.random() > 0.5) {
+                    floorCtx.fillStyle = `rgba(255,255,255,${Math.random() * 0.05})`;
+                    floorCtx.fillRect(x, y, 1, 1);
+                }
+            }
+        }
+
+        // Download functions
+        function downloadTexture(canvas, filename) {
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL('image/jpeg', 0.9);
+            link.click();
+        }
+
+        // Auto download after generation
+        setTimeout(() => {
+            downloadTexture(woodCanvas, 'wood.jpg');
+            downloadTexture(floorCanvas, 'floor.jpg');
+        }, 1000);
+    </script>
+    <p>The textures will download automatically. Move them to the /images directory.</p>
+</body>
+</html>

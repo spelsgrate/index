@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Test Scene</title>
+    <!-- Load Three.js with defer -->
+    <script defer src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+    <style>
+        body { margin: 0; }
+        #error { 
+            position: fixed; 
+            top: 10px; 
+            left: 10px; 
+            color: red; 
+            background: white; 
+            padding: 10px; 
+        }
+    </style>
+</head>
+<body>
+    <div id="error"></div>
+    <script>
+        // Wait for Three.js to load
+        window.addEventListener('load', () => {
+            const error = document.getElementById('error');
+            try {
+                // Check if Three.js loaded
+                if (typeof THREE === 'undefined') {
+                    throw new Error('Three.js failed to load');
+                }
+                
+                // Minimal scene
+                const scene = new THREE.Scene();
+                scene.background = new THREE.Color('blue');
+                
+                const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+                camera.position.z = 5;
+                
+                const renderer = new THREE.WebGLRenderer();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                document.body.appendChild(renderer.domElement);
+                
+                // Single render call
+                renderer.render(scene, camera);
+                
+                error.textContent = 'Scene rendered successfully';
+                error.style.color = 'green';
+                
+            } catch (err) {
+                error.textContent = `Error: ${err.message}\n${err.stack}`;
+                console.error(err);
+            }
+        });
+    </script>
+</body>
+</html>

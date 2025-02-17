@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>3D Maze Screensaver</title>
+	<style>
+		body { margin: 0; overflow: hidden; }
+		canvas { display: block; }
+		#error { 
+			position: fixed; 
+			top: 10px; 
+			left: 10px; 
+			color: red; 
+			background: white; 
+			padding: 10px; 
+			z-index: 1000;
+		}
+	</style>
+</head>
+<body>
+	<div id="error"></div>
+	<script type="module">
+		import * as THREE from 'https://unpkg.com/three@0.152.2/build/three.module.js';
+
+		const error = document.getElementById('error');
+		const debugLog = msg => {
+			console.log(msg);
+			error.textContent = msg;
+			error.style.color = 'green';
+		};
+		const debugError = msg => {
+			console.error(msg);
+			error.textContent = msg;
+			error.style.color = 'red';
+		};
+
+		try {
+			// Basic setup
+			const scene = new THREE.Scene();
+			scene.background = new THREE.Color(0x333333); // lighter background for visibility
+			const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+			const renderer = new THREE.WebGLRenderer({ antialias: true });
+			renderer.setSize(window.innerWidth, window.innerHeight);
+			document.body.appendChild(renderer.domElement);
+
+			// Add axis helper for debugging
+			const axesHelper = new THREE.AxesHelper(10);
+			scene.add(axesHelper);
+
+			// Add lights
+			const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+			scene.add(ambientLight);
+
+			const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+			directionalLight.position.set(10, 10, 10);
+			scene.add(directionalLight);
+
+			debugLog('Scene initialized');
+
+			// Maze parameters
+			let mazeRows = 12, mazeCols = 12;
+			let cellSize = 4;
+			let wallHeight = 3;
+			let grid = [];
+			let stack = [];
+
+			 // Add this after the maze parameters and before the materials declaration
+            const colorPairs = [
+                { wall: 0x8B4513, floor: 0x228B22 }, // Brown walls, green floor
+                { wall: 0x4169E1, floor: 0xFFD700 }, // Blue walls, gold floor
+                { wall: 0x800080, floor: 0x98FB98 }, // Purple walls, pale green floor
+                { wall: 0xCD853F, floor: 0x4682B4 }, // Peru walls, steel blue floor
+                { wall: 0x556B2F, floor: 0xFFA07A }, // Dark olive walls, light salmon floor
+            ];
+            let currentColorIndex = 0;
+
+            // Replace the getRandomContrastingColors function with this simpler version
+            function getRandomContrastingColors() {
+                currentColorIndex = (currentColorIndex + 1) % colorPairs.length;
+                return colorPairs[currentColorIndex];
+            }
+
+			// Materials
+			let wallMaterial, floorMaterial;
+
+			 // Camera animation parameters
+            let currentWaypoint = 0;
+            let progress = 0;
+            const MOVEMENT_SPEED = 0.02;
+            const ROTATION_SPEED = 0.05; // Adjust for smoother rotation
+            let targetLookAt = new THREE.Vector3(); // Store the smoothed look-at target
+
+            // Path and waypoints (initialize to null)
+            let path = null;
+            let waypoints = null;
+
+			 // Maze Cell class with walls: [top, right, bottom, left]
+            class Cell {
+                constructor(x, y) {
+                    this.x = x;
+                    this.y = y;
+                    this.walls = [true, true, true, true];
+                    this.visited = false;
+                }
+                checkNeighbors() {
+                    const neighbors = [];
+                    const top = index(this.x, this.y - 1);
+                    const right = index(this.x + 1, this.y);
+                    const bottom = index(this.x, this.y + 1);
+                    const left = index(this.x - 1, this.y);
+                    if (top && !top.visited) neighbors.push(top);
+                    if (right && !right.visited) neighbors.push(right);
+                    if (bottom && !bottom.visited) neighbors.push(bottom);
+                    if (left && !left.visited) neighbors.push(left);
+                    return neighbors.length > 0 ? neighbors[Math.floor(Math.random() * neighbors.length)] : undefined;
+                }
+            }
+            function index(x, y) {
+                if (x < 0 || y < 0 || x >= mazeCols || y >= mazeRows) return undefined;
+                return grid[x + y * mazeCols];
+            }
+
+            // Add path finding after maze generation
+            function findPath() {
+                const start = grid[0];
+                const end = grid[grid.length - 1];
+                const visited = new Set();
+                const paths = new Map();
+                const queue = [start];
+
+                visited.add(start);
+                paths.set(start, [start]);
+
+                while (queue.length > 0) {
+                    const current = queue.shift();
+                    if (current === end) {
+                        return paths.get(current);
+                    }
+
+                    // Check all four directions
+                    const neighbors = [];
+                    if (!current.walls[0]) neighbors.push(index(current.x, current.y - 1));
+                    if (!current.walls[1]) neighbors.push(index(current.x + 1, current.y));
+                    if (!current.walls[2]) neighbors.push(index(current.x, current.y + 1));
+                    if (!current.walls[3]) neighbors.push(index(current.x - 1, current.y));
+
+                    for (const neighbor of neighbors) {
+                        if (!visited.has(neighbor)) {
+                            visited.add(neighbor);
+                            queue.push(neighbor);
+                            const newPath = [...paths.get(current), neighbor];
+                            paths.set(neighbor, newPath);
+                        }
+                    }
+                }
+                return null;
+            }
+
+			// Function to reset the maze
+			function resetMaze() {
+				debugLog('Resetting maze');
+
+				// Remove existing maze elements
+				for (let i = scene.children.length - 1; i >= 0; i--) {
+					const child = scene.children[i];
+					if (child instanceof THREE.Mesh) {
+						scene.remove(child);
+					}
+				}
+
+				// Generate new color scheme
+				const colors = getRandomContrastingColors();
+				wallMaterial = new THREE.MeshStandardMaterial({ 
+					color: colors.wall,
+					roughness: 0.7,
+					metalness: 0.1
+				});
+				floorMaterial = new THREE.MeshStandardMaterial({ 
+					color: colors.floor,
+					roughness: 0.8,
+					metalness: 0.1
+				});
+				scene.background = new THREE.Color(0x000000); // Keep background black
+
+				// Reinitialize grid
+				grid.length = 0;
+				for (let y = 0; y < mazeRows; y++) {
+					for (let x = 0; x < mazeCols; x++) {
+						grid.push(new Cell(x, y));
+					}
+				}
+				debugLog('Grid initialized');
+
+				// DFS Maze generation
+				stack.length = 0;
+				let current = grid[0];
+				current.visited = true;
+				stack.push(current);
+				while (stack.length > 0) {
+					current = stack.pop();
+					const next = current.checkNeighbors();
+					if (next) {
+						stack.push(current);
+						// Remove wall between current and next
+						const dx = current.x - next.x;
+						if (dx === 1) { current.walls[3] = false; next.walls[1] = false; }
+						else if (dx === -1) { current.walls[1] = false; next.walls[3] = false; }
+						const dy = current.y - next.y;
+						if (dy === 1) { current.walls[0] = false; next.walls[2] = false; }
+						else if (dy === -1) { current.walls[2] = false; next.walls[0] = false; }
+						next.visited = true;
+						stack.push(next);
+					}
+				}
+				debugLog('Maze generated');
+
+				// Build maze walls (only add top and right walls per cell to avoid duplicates)
+				const wallGeometry = new THREE.BoxGeometry(cellSize, wallHeight, 0.3);
+				for (let y = 0; y < mazeRows; y++) {
+					for (let x = 0; x < mazeCols; x++) {
+						const cell = grid[x + y * mazeCols];
+						const posX = x * cellSize - (mazeCols * cellSize) / 2;
+						const posZ = y * cellSize - (mazeRows * cellSize) / 2;
+						// Top wall
+						if (cell.walls[0]) {
+							const wall = new THREE.Mesh(wallGeometry, wallMaterial);
+							wall.position.set(posX + cellSize / 2, wallHeight / 2, posZ);
+							scene.add(wall);
+						}
+						// Right wall
+						if (cell.walls[1]) {
+							const wall = new THREE.Mesh(wallGeometry, wallMaterial);
+							wall.rotation.y = Math.PI / 2;
+							wall.position.set(posX + cellSize, wallHeight / 2, posZ + cellSize / 2);
+							scene.add(wall);
+						}
+						// For boundaries: add bottom wall for the bottom row and left wall for the left-most column
+						if (y === mazeRows - 1 && cell.walls[2]) {
+							const wall = new THREE.Mesh(wallGeometry, wallMaterial);
+							wall.position.set(posX + cellSize / 2, wallHeight / 2, posZ + cellSize);
+							scene.add(wall);
+						}
+						if (x === 0 && cell.walls[3]) {
+							const wall = new THREE.Mesh(wallGeometry, wallMaterial);
+							wall.rotation.y = Math.PI / 2;
+							wall.position.set(posX, wallHeight / 2, posZ + cellSize / 2);
+							scene.add(wall);
+						}
+					}
+				}
+				debugLog('Walls built');
+
+				// Add floor
+				const floorGeometry = new THREE.PlaneGeometry(mazeCols * cellSize, mazeRows * cellSize);
+				const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+				floor.rotation.x = -Math.PI / 2;
+				scene.add(floor);
+				debugLog('Floor added');
+			}
+
+			 // Initial maze generation and setup
+            resetMaze();
+
+            // Initial camera setup
+            camera.position.set((mazeCols * cellSize) / 4, wallHeight * 2, (mazeRows * cellSize) / 4);
+            targetLookAt.set(0, wallHeight / 2, 0);
+            camera.lookAt(targetLookAt);
+
+            // Replace existing animation with path following
+            function animate() {
+                requestAnimationFrame(animate);
+
+                // Find the solution path
+                path = findPath();
+                waypoints = path?.map(cell => ({
+                    x: (cell.x * cellSize) - (mazeCols * cellSize) / 2 + cellSize / 2,
+                    y: wallHeight * 0.8,
+                    z: (cell.y * cellSize) - (mazeRows * cellSize) / 2 + cellSize / 2
+                }));
+
+                if (waypoints?.length) {
+                    // Move camera along path
+                    if (currentWaypoint < waypoints.length - 1) {
+                        progress += MOVEMENT_SPEED;
+                        if (progress >= 1) {
+                            progress = 0;
+                            currentWaypoint++;
+                        }
+
+                        const current = waypoints[currentWaypoint];
+                        const next = waypoints[currentWaypoint + 1];
+
+                        // Smooth camera position transition
+                        camera.position.lerp(new THREE.Vector3(current.x + (next.x - current.x) * progress, current.y + (next.y - current.y) * progress, current.z + (next.z - current.z) * progress), 0.1);
+
+                        // Smoothly transition the look-at target
+                        const lookAhead = waypoints[Math.min(currentWaypoint + 2, waypoints.length - 1)];
+                        const newTarget = new THREE.Vector3(lookAhead.x, current.y, lookAhead.z);
+
+                        // Use lerp to smoothly update the targetLookAt
+                        targetLookAt.lerp(newTarget, ROTATION_SPEED);
+                        camera.lookAt(targetLookAt);
+                    } else {
+                        // Reset the maze and camera
+                        resetMaze();
+                        currentWaypoint = 0;
+                        progress = 0;
+                        camera.position.set((mazeCols * cellSize) / 4, wallHeight * 2, (mazeRows * cellSize) / 4);
+                        targetLookAt.set(0, wallHeight / 2, 0);
+                        camera.lookAt(targetLookAt);
+                    }
+                } else {
+                    // If no path, just look at the center
+                    camera.lookAt(0, wallHeight / 2, 0);
+                }
+
+                renderer.render(scene, camera);
+            }
+
+            animate();
+            debugLog('Animation started');
+
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+		} catch (err) {
+			debugError(`Maze error: ${err.message}`);
+			console.error(err);
+		}
+	</script>
+</body>
+</html>
